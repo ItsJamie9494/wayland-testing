@@ -1,0 +1,32 @@
+[package]
+name = "electrum"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+authors = ["Jamie Murphy <hello@itsjamie.dev>"]
+
+[features]
+default = []
+debug = []
+
+[profile.dev]
+lto = "thin"
+
+[profile.fastdebug]
+inherits = "release"
+debug = true
+
+[profile.release]
+lto = "fat"
+
+[dependencies]
+anyhow = "1.0.61"
+slog = { version = "2.7.0", features = [] }
+slog-stdlog = "4.1.0"
+slog-scope = "4.4.0"
+slog-term = "2.9.0"
+
+[dependencies.smithay]
+git = "https://github.com/Smithay/smithay.git"
+default-features = false
+features = ["backend_winit", "desktop", "slog-stdlog"]
