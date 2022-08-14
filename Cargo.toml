@@ -4,6 +4,15 @@ version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-only"
 authors = ["Jamie Murphy <hello@itsjamie.dev>"]
+default-run = "electrum"
+
+# List all available outputs
+[[bin]]
+name = "output"
+
+# Show an image
+[[bin]]
+name = "image"
 
 [features]
 default = []
@@ -25,8 +34,14 @@ slog = { version = "2.7.0", features = [] }
 slog-stdlog = "4.1.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
+image = "0.24.3"
+xdg = "2.4.1"
 
 [dependencies.smithay]
 git = "https://github.com/Smithay/smithay.git"
 default-features = false
 features = ["backend_winit", "backend_drm", "desktop", "slog-stdlog"]
+
+[dependencies.sctk]
+package = "smithay-client-toolkit"
+git = "https://github.com/Smithay/client-toolkit.git"
