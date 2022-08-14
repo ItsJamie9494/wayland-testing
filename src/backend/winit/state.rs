@@ -15,6 +15,10 @@ pub struct WinitState {
 
 impl WinitState {
     pub fn render_output(&mut self, state: &mut CommonState) -> Result<(), Box<dyn Error>> {
+        if renderer::needs_buffer_reset(&self.output, state) {
+            self.reset_buffers();
+        }
+
         self.backend
             .bind()
             .with_context(|| "Failed to bind buffer")?;
@@ -34,10 +38,11 @@ impl WinitState {
             true,
         ) {
             Ok(damage) => {
-                // state
-                //     .shell
-                //     .active_space_mut(&self.output)
-                //     .send_frames(state.start_time.elapsed().as_millis() as u32);
+                state
+                    .shell
+                    .active_workspace_mut()
+                    .space
+                    .send_frames(state.start_time.elapsed().as_millis() as u32);
                 self.backend
                     .submit(damage.as_ref().map(|x| &**x))
                     .with_context(|| "Failed to submit buffer for display")?;
@@ -50,5 +55,9 @@ impl WinitState {
         };
 
         Ok(())
+    }
+
+    pub fn reset_buffers(&mut self) {
+        self.age_reset = 3;
     }
 }

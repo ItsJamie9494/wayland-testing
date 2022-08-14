@@ -9,7 +9,6 @@ use crate::{
 use anyhow::{anyhow, Context};
 use smithay::{
     backend::{
-        input::{InputEvent, KeyboardKeyEvent},
         renderer::ImportDma,
         winit::{self, WinitEvent, WinitGraphicsBackend},
     },
@@ -20,10 +19,7 @@ use smithay::{
             DisplayHandle,
         },
     },
-    wayland::{
-        output::{Mode, Output, PhysicalProperties, Scale},
-        seat::FilterResult,
-    },
+    wayland::output::{Mode, Output, PhysicalProperties, Scale},
 };
 
 use self::state::WinitState;
@@ -35,10 +31,10 @@ pub fn init_backend(
     event_loop: &mut EventLoop<Data>,
     state: &mut State,
 ) -> Result<(), Box<dyn Error>> {
-    let (backend, mut winit) =
+    let (mut backend, mut winit) =
         winit::init(None).map_err(|_| anyhow!("Failed to initialise Winit backend"))?;
 
-    init_egl(dh, state, &mut backend);
+    init_egl(dh, state, &mut backend)?;
 
     let name = format!("WINIT-0");
     let props = PhysicalProperties {
@@ -62,6 +58,7 @@ pub fn init_backend(
         Some(Scale::Integer(1)),
         Some((0, 0).into()),
     );
+    // TODO Insert User Data
 
     let (event_ping, event_source) =
         ping::make_ping().with_context(|| "Failed to init eventloop timer for winit")?;
@@ -113,6 +110,8 @@ pub fn init_backend(
         output: output.clone(),
         age_reset: 0,
     });
+    state.common.shell.add_output(&output);
+    state.common.shell.refresh_outputs();
 
     Ok(())
 }
@@ -140,43 +139,14 @@ fn init_egl(
 impl State {
     pub fn process_winit_event(
         &mut self,
-        dh: &DisplayHandle,
+        _dh: &DisplayHandle,
         event: WinitEvent,
         render_ping: &ping::Ping,
     ) {
-        let keyboard = self
-            .common
-            .seat
-            .add_keyboard(Default::default(), 200, 200, |_, _| {})
-            .unwrap();
-
         match event {
             WinitEvent::Resized { .. } => {}
             WinitEvent::Focus(_) => {}
-            WinitEvent::Input(event) => match event {
-                InputEvent::Keyboard { event } => {
-                    keyboard.input::<(), _>(
-                        dh,
-                        event.key_code(),
-                        event.state(),
-                        0.into(),
-                        0,
-                        |_, _| {
-                            //
-                            FilterResult::Forward
-                        },
-                    );
-                }
-                InputEvent::PointerMotionAbsolute { .. } => {
-                    self.common.shell.toplevel_surfaces(|surfaces| {
-                        if let Some(surface) = surfaces.iter().next() {
-                            let surface = surface.wl_surface();
-                            keyboard.set_focus(dh, Some(surface), 0.into());
-                        }
-                    });
-                }
-                _ => {}
-            },
+            WinitEvent::Input(_) => {}
             WinitEvent::Refresh => render_ping.ping(),
         }
     }
