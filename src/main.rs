@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use std::{error::Error, ffi::OsString};
+use std::{error::Error, ffi::OsString, sync::Arc};
 
 use anyhow::Context;
 use smithay::{
@@ -22,13 +22,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     let log = init_logger()?;
     slog_scope::info!("Starting up");
 
-    let mut event_loop = EventLoop::try_new_high_precision()
-        .with_context(|| "Failed to initialise event loop")
-        .unwrap();
+    let mut event_loop =
+        EventLoop::try_new_high_precision().with_context(|| "Failed to initialise event loop")?;
 
     let (display, socket) = init_wayland_display(&mut event_loop)?;
 
-    let mut state = State::new(&display.handle(), socket, log);
+    let mut state = State::new(
+        &display.handle(),
+        socket,
+        event_loop.handle(),
+        event_loop.get_signal(),
+        log,
+    );
 
     backend::init_backend(&mut event_loop, &mut state)?;
 
@@ -36,10 +41,20 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     event_loop
         .run(None, &mut data, |data| {
+            // Shut down
+            if data.state.common.should_stop {
+                slog_scope::info!("Shutting down");
+                data.state.common.event_loop_signal.stop();
+                data.state.common.event_loop_signal.wakeup();
+                return;
+            }
+
+            // Send events to Clients
             let _ = data.display.flush_clients();
         })
         .expect("Failed to run Event Loop");
 
+    let _log = data.state.destroy_with_log();
     std::mem::drop(event_loop);
     Ok(())
 }
@@ -55,10 +70,19 @@ fn init_wayland_display(
 
     event_loop
         .handle()
-        .insert_source(socket_source, |_stream, _, _data| {
-            slog_scope::warn!("Unimplemented");
+        .insert_source(socket_source, |stream, _, data| {
+            if let Err(err) = data.display.handle().insert_client(
+                stream,
+                Arc::new(if cfg!(debug_assertions) {
+                    data.state.new_privileged_client_state()
+                } else {
+                    data.state.new_client_state()
+                }),
+            ) {
+                slog_scope::warn!("Error adding wayland client: {}", err);
+            };
         })
-        .with_context(|| "Failed to initialise socket")?;
+        .with_context(|| "Failed to initialise Wayland socket")?;
 
     event_loop
         .handle()
@@ -68,11 +92,12 @@ fn init_wayland_display(
                 Ok(_) => Ok(PostAction::Continue),
                 Err(e) => {
                     slog_scope::error!("I/O Error on display: {}", e);
+                    data.state.common.should_stop = true;
                     Err(e)
                 }
             },
         )
-        .with_context(|| "Failed to initialise event source")?;
+        .with_context(|| "Failed to initialise Wayland event source")?;
 
     Ok((display, socket_name))
 }

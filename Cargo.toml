@@ -29,4 +29,4 @@ slog-term = "2.9.0"
 [dependencies.smithay]
 git = "https://github.com/Smithay/smithay.git"
 default-features = false
-features = ["backend_winit", "desktop", "slog-stdlog"]
+features = ["backend_winit", "backend_drm", "desktop", "slog-stdlog"]
