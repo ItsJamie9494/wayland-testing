@@ -10,7 +10,8 @@ use anyhow::{anyhow, Context};
 use smithay::{
     backend::{
         input::{InputEvent, KeyboardKeyEvent},
-        winit::{self, WinitEvent},
+        renderer::ImportDma,
+        winit::{self, WinitEvent, WinitGraphicsBackend},
     },
     reexports::{
         calloop::{ping, EventLoop},
@@ -30,20 +31,20 @@ use self::state::WinitState;
 pub mod state;
 
 pub fn init_backend(
+    dh: &DisplayHandle,
     event_loop: &mut EventLoop<Data>,
     state: &mut State,
 ) -> Result<(), Box<dyn Error>> {
-    let (backend, mut winit) = winit::init(None)
-        .map_err(|_| anyhow!("Failed to initialise Winit backend"))
-        .unwrap();
+    let (backend, mut winit) =
+        winit::init(None).map_err(|_| anyhow!("Failed to initialise Winit backend"))?;
 
-    // TODO: Init EGL
+    init_egl(dh, state, &mut backend);
 
     let name = format!("WINIT-0");
     let props = PhysicalProperties {
         size: (0, 0).into(),
         subpixel: Subpixel::Unknown,
-        make: String::from("ELECTRUM-DEBUG"),
+        make: String::from("ELECTRUM"),
         model: name.clone(),
     };
     let size = backend.window_size();
@@ -52,6 +53,7 @@ pub fn init_backend(
         refresh: 60_000,
     };
     let output = Output::new(name, props, None);
+    let _global = output.create_global::<State>(dh);
     output.add_mode(mode);
     output.set_preferred(mode);
     output.change_current_state(
@@ -61,12 +63,10 @@ pub fn init_backend(
         Some((0, 0).into()),
     );
 
-    let (event_ping, event_source) = ping::make_ping()
-        .with_context(|| "Failed to init eventloop timer for winit")
-        .unwrap();
-    let (render_ping, render_source) = ping::make_ping()
-        .with_context(|| "Failed to init eventloop timer for winit")
-        .unwrap();
+    let (event_ping, event_source) =
+        ping::make_ping().with_context(|| "Failed to init eventloop timer for winit")?;
+    let (render_ping, render_source) =
+        ping::make_ping().with_context(|| "Failed to init eventloop timer for winit")?;
     let event_ping_handle = event_ping.clone();
     let render_ping_handle = render_ping.clone();
     let mut token = Some(
@@ -83,8 +83,7 @@ pub fn init_backend(
                     render_ping.ping();
                 }
             })
-            .map_err(|_| anyhow::anyhow!("Failed to init eventloop timer for winit"))
-            .unwrap(),
+            .map_err(|_| anyhow::anyhow!("Failed to init eventloop timer for winit"))?,
     );
     let event_loop_handle = event_loop.handle();
     event_loop
@@ -106,19 +105,38 @@ pub fn init_backend(
                 }
             };
         })
-        .map_err(|_| anyhow::anyhow!("Failed to init eventloop timer for winit"))
-        .unwrap();
+        .map_err(|_| anyhow::anyhow!("Failed to init eventloop timer for winit"))?;
     event_ping.ping();
 
     state.backend = BackendData::Winit(WinitState {
         backend,
-        _output: output.clone(),
+        output: output.clone(),
+        age_reset: 0,
     });
-    // TODO init backend
 
     Ok(())
 }
 
+fn init_egl(
+    dh: &DisplayHandle,
+    state: &mut State,
+    renderer: &mut WinitGraphicsBackend,
+) -> Result<(), Box<dyn Error>> {
+    slog_scope::info!("EGL Hardware Acceleration should be enabled");
+    let formats = renderer
+        .renderer()
+        .dmabuf_formats()
+        .cloned()
+        .collect::<Vec<_>>();
+    state
+        .common
+        .dmabuf_state
+        .create_global::<State, _>(dh, formats, slog_scope::logger());
+
+    Ok(())
+}
+
+// TODO: Forward all events to input handlers
 impl State {
     pub fn process_winit_event(
         &mut self,
