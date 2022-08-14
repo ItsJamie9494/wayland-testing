@@ -31,6 +31,37 @@ impl AsGles2Renderer for Gles2Renderer {
 
 static CLEAR_COLOR: [f32; 4] = [0.153, 1.0, 0.165, 1.0];
 
+pub fn cursor_custom_elements<R>(
+    _renderer: &mut R,
+    _state: &CommonState,
+    _output: &Output,
+    _hardware_cursor: bool,
+) -> Vec<CustomElem>
+where
+    R: AsGles2Renderer,
+{
+    Vec::new()
+}
+
+pub fn needs_buffer_reset(output: &Output, state: &CommonState) -> bool {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    struct DidCustomRendering(AtomicBool);
+
+    let will_render_custom = {
+        let workspace = state.shell.active_workspace();
+        workspace.get_fullscreen(output).is_some()
+    };
+
+    let userdata = output.user_data();
+    userdata.insert_if_missing(|| DidCustomRendering(AtomicBool::new(false)));
+    userdata
+        .get::<DidCustomRendering>()
+        .unwrap()
+        .0
+        .swap(will_render_custom, Ordering::AcqRel)
+        != will_render_custom
+}
+
 pub fn render_output<R>(
     renderer: &mut R,
     age: u8,
@@ -43,8 +74,14 @@ where
     <R as Renderer>::TextureId: Clone + 'static,
     CustomElem: RenderElement<R>,
 {
-    // TODO
-    // Render either a desktop or window, based on presence
+    let workspace = state.shell.active_workspace();
+    let is_fullscreen = workspace.get_fullscreen(output).cloned();
+
+    if let Some(window) = is_fullscreen {
+        render_window(renderer, window, state, output, hardware_cursor)
+    } else {
+        render_desktop(renderer, age, state, output, hardware_cursor)
+    }
 }
 
 fn render_desktop<R>(
@@ -61,8 +98,20 @@ where
 {
     let mut custom_elements = Vec::<CustomElem>::new();
 
-    // TODO
-    // Get active space and render it
+    custom_elements.extend(cursor_custom_elements(
+        renderer,
+        state,
+        output,
+        hardware_cursor,
+    ));
+
+    state.shell.active_workspace_mut().space.render_output(
+        renderer,
+        &output,
+        age as usize,
+        CLEAR_COLOR,
+        &custom_elements,
+    )
 }
 
 /// Renders a Wayland window
@@ -83,6 +132,13 @@ where
     let scale = output.current_scale().fractional_scale();
 
     let mut custom_elements = Vec::<CustomElem>::new();
+
+    custom_elements.extend(cursor_custom_elements(
+        renderer,
+        state,
+        output,
+        hardware_cursor,
+    ));
 
     renderer
         .render(mode.size, transform, |renderer, frame| {
