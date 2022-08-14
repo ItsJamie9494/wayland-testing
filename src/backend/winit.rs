@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
 use std::error::Error;
 
 use crate::{
@@ -202,8 +204,8 @@ impl State {
             .unwrap();
 
         match event {
-            WinitEvent::Resized { .. } => {},
-            WinitEvent::Focus(_) => {},
+            WinitEvent::Resized { .. } => {}
+            WinitEvent::Focus(_) => {}
             WinitEvent::Input(event) => match event {
                 InputEvent::Keyboard { event } => {
                     keyboard.input::<(), _>(

@@ -32,7 +32,5 @@ pub fn init_logger() -> Result<LogState, Box<dyn Error>> {
         );
     }
 
-    Ok(LogState {
-        _guard,
-    })
+    Ok(LogState { _guard })
 }
