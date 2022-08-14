@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use std::ffi::OsString;
+use std::{ffi::OsString, time::Instant};
 
 use smithay::{
-    backend::drm::DrmNode,
     reexports::{
         calloop::{LoopHandle, LoopSignal},
         wayland_server::{
@@ -13,11 +12,12 @@ use smithay::{
     },
     wayland::{
         compositor::CompositorState,
+        data_device::DataDeviceState,
         dmabuf::DmabufState,
         output::OutputManagerState,
         seat::{Seat, SeatState},
-        shell::xdg::XdgShellState,
         shm::ShmState,
+        viewporter::ViewporterState,
     },
 };
 
@@ -25,11 +25,12 @@ use crate::{backend::winit::state::WinitState, log::LogState};
 
 mod buffer;
 mod compositor;
+mod data_device;
 mod dmabuf;
 mod output;
 mod seat;
 mod shm;
-mod wayland;
+mod viewporter;
 
 pub enum BackendData {
     Winit(WinitState),
@@ -45,10 +46,7 @@ impl BackendData {
     }
 }
 
-pub struct ClientState {
-    pub drm_node: Option<DrmNode>,
-    pub privileged: bool,
-}
+pub struct ClientState {}
 impl ClientData for ClientState {
     fn initialized(&self, _client_id: ClientId) {}
     fn disconnected(&self, _client_id: ClientId, _reason: DisconnectReason) {}
@@ -69,18 +67,21 @@ pub struct CommonState {
     pub event_loop_handle: LoopHandle<'static, Data>,
     pub event_loop_signal: LoopSignal,
 
-    pub should_stop: bool,
+    // pub shell: Shell,
+    pub seats: Vec<Seat<State>>,
 
+    pub start_time: Instant,
+    pub should_stop: bool,
     pub log: LogState,
 
-    pub seat: Seat<State>,
-    pub shell: XdgShellState,
-
+    // Wayland State
     pub compositor_state: CompositorState,
+    pub data_device_state: DataDeviceState,
     pub dmabuf_state: DmabufState,
     pub output_state: OutputManagerState,
     pub seat_state: SeatState<State>,
     pub shm_state: ShmState,
+    pub viewporter_state: ViewporterState,
 }
 
 impl State {
@@ -98,38 +99,26 @@ impl State {
                 event_loop_handle: handle,
                 event_loop_signal: signal,
 
-                should_stop: false,
+                // TODO: Have input managers handle this
+                seats: vec![Seat::<Self>::new(&dh, "seat-0", None)],
 
+                start_time: Instant::now(),
+                should_stop: false,
                 log: log,
 
-                seat: Seat::<Self>::new(&dh, "seat-0", None),
-                shell: XdgShellState::new::<Self, _>(&dh, None),
-
-                compositor_state: CompositorState::new::<Self, _>(dh, None),
+                compositor_state: CompositorState::new::<Self, _>(dh, slog_scope::logger()),
+                data_device_state: DataDeviceState::new::<Self, _>(dh, slog_scope::logger()),
                 dmabuf_state: DmabufState::new(),
                 output_state: OutputManagerState::new_with_xdg_output::<Self>(dh),
                 seat_state: SeatState::<Self>::new(),
-                shm_state: ShmState::new::<Self, _>(dh, vec![], None),
+                shm_state: ShmState::new::<Self, _>(dh, vec![], slog_scope::logger()),
+                viewporter_state: ViewporterState::new::<Self, _>(dh, slog_scope::logger()),
             },
         }
     }
 
     pub fn new_client_state(&self) -> ClientState {
-        ClientState {
-            drm_node: match &self.backend {
-                _ => None,
-            },
-            privileged: false,
-        }
-    }
-
-    pub fn new_privileged_client_state(&self) -> ClientState {
-        ClientState {
-            drm_node: match &self.backend {
-                _ => None,
-            },
-            privileged: true,
-        }
+        ClientState {}
     }
 
     pub fn destroy_with_log(self) -> LogState {
