@@ -8,7 +8,10 @@ use smithay::{
     wayland::{
         output::Output,
         seat::{PointerGrabStartData, Seat},
-        shell::{wlr_layer::WlrLayerShellState, xdg::{XdgShellState, PopupSurface, PositionerState}},
+        shell::{
+            wlr_layer::WlrLayerShellState,
+            xdg::{PopupSurface, PositionerState, XdgShellState},
+        },
         Serial,
     },
 };
@@ -104,7 +107,7 @@ impl Shell {
         // DENO FUNCTION
     }
 
-    pub fn map_window(&mut self, _window: &Window, _output: &Output, _dh: &DisplayHandle) { 
+    pub fn map_window(&mut self, _window: &Window, _output: &Output, _dh: &DisplayHandle) {
         // DENO FUNCTION
     }
 

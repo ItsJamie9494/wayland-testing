@@ -16,6 +16,7 @@ use crate::log::init_logger;
 
 mod backend;
 mod log;
+mod shell;
 mod state;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -35,19 +36,22 @@ fn main() -> Result<(), Box<dyn Error>> {
         log,
     );
 
-    backend::init_backend(&mut event_loop, &mut state)?;
+    backend::init_backend(&display.handle(), &mut event_loop, &mut state)?;
 
     let mut data = Data { display, state };
 
     event_loop
         .run(None, &mut data, |data| {
             // Shut down
-            if data.state.common.should_stop {
+            if data.state.common.shell.outputs().next().is_none() || data.state.common.should_stop {
                 slog_scope::info!("Shutting down");
                 data.state.common.event_loop_signal.stop();
                 data.state.common.event_loop_signal.wakeup();
                 return;
             }
+
+            data.state.common.shell.refresh(&data.display.handle());
+            data.state.common.refresh_focus(&data.display.handle());
 
             // Send events to Clients
             let _ = data.display.flush_clients();
@@ -74,7 +78,8 @@ fn init_wayland_display(
             if let Err(err) = data.display.handle().insert_client(
                 stream,
                 Arc::new(if cfg!(debug_assertions) {
-                    data.state.new_privileged_client_state()
+                    // TODO privledges?
+                    data.state.new_client_state()
                 } else {
                     data.state.new_client_state()
                 }),
