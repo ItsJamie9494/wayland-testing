@@ -101,7 +101,8 @@ pub fn init_backend(
                 }
                 Err(winit::WinitError::WindowClosed) => {
                     if let Some(token) = token.take() {
-                        // TODO remove output from ElectrumShell
+                        let output = data.state.backend.winit().output.clone();
+                        data.state.common.shell.remove_output(&output);
                         event_loop_handle.remove(token);
                     }
                 }
