@@ -9,6 +9,7 @@ use deno_core::ModuleSpecifier;
 use deno_runtime::worker::MainWorker;
 
 mod main;
+mod module;
 
 pub struct Runtime {
     pub main_worker: MainWorker,
@@ -29,7 +30,7 @@ impl Runtime {
             config_path.push("main.js");
         } else {
             let xdg_dirs = xdg::BaseDirectories::with_prefix("electrum").unwrap();
-            config_path = xdg_dirs.get_config_file("main.js");
+            config_path = xdg_dirs.get_config_file("main.ts");
         }
 
         println!("{}", config_path.display());
