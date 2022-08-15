@@ -1,5 +1,4 @@
-//! This Implementation, ideally, will purely be callbacks to an FFI.
-//! There should be minimal amounts of code here, any code here is either for debug purposes or in development
+// SPDX-License-Identifier: GPL-3.0-only
 
 use std::collections::HashMap;
 
@@ -50,18 +49,31 @@ impl Workspace {
         self.space.refresh(dh);
     }
 
-    pub fn maximize_request(&mut self, _window: &Window, _output: &Output) {}
+    pub fn maximize_request(&mut self, window: &Window, _output: &Output) {
+        if self.fullscreen.values().any(|w| w == window) {
+            return;
+        }
+        // DENO CODE
+    }
 
-    pub fn unmaximize_request(&mut self, _window: &Window) {}
+    pub fn unmaximize_request(&mut self, window: &Window) {
+        if self.fullscreen.values().any(|w| w == window) {
+            return self.unfullscreen_request(window);
+        }
+        // DENO CODE
+    }
 
     pub fn resize_request(
         &mut self,
-        _window: &Window,
+        window: &Window,
         _seat: &Seat<State>,
         _serial: Serial,
         _start_data: PointerGrabStartData,
         _edges: ResizeEdge,
     ) {
+        if self.fullscreen.values().any(|w| w == window) {
+            return;
+        }
     }
 
     pub fn fullscreen_request(&mut self, window: &Window, output: &Output) {
@@ -99,6 +111,9 @@ impl Workspace {
                 });
                 xdg.send_configure();
             }
+
+            // DENO CODE, SEND REFRESH
+
             self.fullscreen.retain(|_, w| w != window);
         }
     }
