@@ -67,6 +67,11 @@ impl Shell {
         );
     }
 
+    pub fn remove_output(&mut self, output: &Output) {
+        self.outputs.retain(|o| o != output);
+        remap_output(output, &mut self.workspaces, None, None, None);
+    }
+
     pub fn active_workspace(&self) -> &Workspace {
         &self.workspaces.get(0).unwrap()
     }
