@@ -140,10 +140,6 @@ impl State {
     pub fn new_client_state(&self) -> ClientState {
         ClientState {}
     }
-
-    pub fn destroy_with_log(self) -> LogState {
-        self.common.log
-    }
 }
 
 impl CommonState {

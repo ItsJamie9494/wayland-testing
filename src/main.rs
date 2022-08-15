@@ -70,7 +70,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         })
         .expect("Failed to run Event Loop");
 
-//     let _log = data.state.destroy_with_log();
     std::mem::drop(event_loop);
     Ok(())
 }
