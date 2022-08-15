@@ -21,7 +21,6 @@ use smithay::{
     },
     wayland::output::{Mode, Output, PhysicalProperties, Scale},
 };
-use std::ops::DerefMut;
 
 use self::state::WinitState;
 
@@ -71,8 +70,6 @@ pub fn init_backend(
         event_loop
             .handle()
             .insert_source(render_source, move |_, _, data| {
-                let mut data = data.lock().unwrap();
-                let data = data.deref_mut();
                 if let Err(err) = data
                     .state
                     .backend
@@ -89,7 +86,6 @@ pub fn init_backend(
     event_loop
         .handle()
         .insert_source(event_source, move |_, _, data| {
-            let mut data = data.lock().unwrap();
             let handle = &data.display.handle();
             match winit.dispatch_new_events(|event| {
                 data.state

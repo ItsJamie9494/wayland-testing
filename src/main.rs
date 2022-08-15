@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use std::{
-    error::Error,
-    ffi::OsString,
-    sync::{Arc, Mutex},
-};
+use std::{error::Error, ffi::OsString, sync::Arc};
 
 use anyhow::Context;
+use calloop::channel::{channel, Event, Sender};
 use smithay::{
     reexports::{
         calloop::{generic::Generic, EventLoop, Interest, Mode, PostAction},
@@ -15,9 +12,9 @@ use smithay::{
     wayland::socket::ListeningSocketSource,
 };
 use state::{Data, LoopData, State};
-use std::ops::DerefMut;
 
 use crate::log::init_logger;
+use crate::runtime::messages::{CompositorMessage, RuntimeMessage};
 
 mod backend;
 mod log;
@@ -34,25 +31,27 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let (display, socket) = init_wayland_display(&mut event_loop)?;
 
+    let compositor_sender = init_compositor_channel(&mut event_loop);
+
+    let runtime = runtime::Runtime::new(compositor_sender);
+    let runtime_sender = runtime.runtime_sender.clone();
+    runtime.run_with_calloop(&mut event_loop);
+
     let mut state = State::new(
         &display.handle(),
         socket,
         event_loop.handle(),
         event_loop.get_signal(),
         log,
+        runtime_sender,
     );
 
     backend::init_backend(&display.handle(), &mut event_loop, &mut state)?;
 
-    let mut data = Arc::new(Mutex::new(Data { display, state }));
-
-    let runtime = runtime::Runtime::new(data.clone());
-    runtime.run_with_calloop(event_loop.handle());
+    let mut data = Data { display, state };
 
     event_loop
         .run(None, &mut data, |data| {
-            let mut data = data.lock().unwrap();
-
             // Shut down
             if data.state.common.shell.outputs().next().is_none() || data.state.common.should_stop {
                 slog_scope::info!("Shutting down");
@@ -74,6 +73,26 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn init_compositor_channel(event_loop: &mut EventLoop<LoopData>) -> Sender<CompositorMessage> {
+    let (sender, channel) = channel::<CompositorMessage>();
+    event_loop
+        .handle()
+        .insert_source(channel, |message, _, data| match message {
+            Event::Msg(CompositorMessage::Ping) => {
+                slog_scope::info!("The compositor got a ping!");
+                data.state
+                    .common
+                    .runtime_sender
+                    .send(RuntimeMessage::Ping)
+                    .unwrap();
+            }
+            Event::Closed => todo!(),
+        })
+        .expect("Failed to initalize compositor message channel");
+
+    sender
+}
+
 fn init_wayland_display(
     event_loop: &mut EventLoop<LoopData>,
 ) -> Result<(Display<State>, OsString), Box<dyn Error>> {
@@ -86,7 +105,6 @@ fn init_wayland_display(
     event_loop
         .handle()
         .insert_source(socket_source, |stream, _, data| {
-            let data = data.lock().unwrap();
             if let Err(err) = data.display.handle().insert_client(
                 stream,
                 Arc::new(if cfg!(debug_assertions) {
@@ -106,8 +124,6 @@ fn init_wayland_display(
         .insert_source(
             Generic::new(display.backend().poll_fd(), Interest::READ, Mode::Level),
             move |_, _, data: &mut LoopData| {
-                let mut data = data.lock().unwrap();
-                let data = data.deref_mut();
                 let state = &mut data.state;
                 match data.display.dispatch_clients(state) {
                     Ok(_) => Ok(PostAction::Continue),
