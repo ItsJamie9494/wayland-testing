@@ -17,10 +17,10 @@ fn get_error_class_name(e: &AnyError) -> &'static str {
 fn options() -> WorkerOptions {
     let module_loader = Rc::new(TypescriptModuleLoader);
     let create_web_worker_cb = Arc::new(|_| {
-        todo!("Web workers are not supported in the example");
+        todo!("Web workers are not supported within electrum");
     });
     let web_worker_preload_module_cb = Arc::new(|_| {
-        todo!("Web workers are not supported in the example");
+        todo!("Web workers are not supported within electrum");
     });
 
     WorkerOptions {
