@@ -37,9 +37,8 @@ pub struct Shell {
 
 impl Shell {
     pub fn new(dh: &DisplayHandle) -> Self {
-        // TODO Create Workspaces
-
         Self {
+            // TODO: Make a way to create new Workspaces
             workspaces: vec![Workspace::new(0)],
             outputs: Vec::new(),
             popups: PopupManager::new(slog_scope::logger()),
@@ -56,6 +55,23 @@ impl Shell {
         self.outputs.iter()
     }
 
+    pub fn active_workspace(&self) -> &Workspace {
+        &self.workspaces.get(0).unwrap()
+    }
+
+    pub fn active_workspace_mut(&mut self) -> &mut Workspace {
+        &mut self.workspaces[0]
+    }
+
+    pub fn space_for_window_mut(&mut self, surface: &WlSurface) -> Option<&mut Workspace> {
+        self.workspaces.iter_mut().find(|workspace| {
+            workspace
+                .space
+                .window_for_surface(surface, WindowSurfaceType::ALL)
+                .is_some()
+        })
+    }
+
     pub fn add_output(&mut self, output: &Output) {
         self.outputs.push(output.clone());
         remap_output(
@@ -70,14 +86,6 @@ impl Shell {
     pub fn remove_output(&mut self, output: &Output) {
         self.outputs.retain(|o| o != output);
         remap_output(output, &mut self.workspaces, None, None, None);
-    }
-
-    pub fn active_workspace(&self) -> &Workspace {
-        &self.workspaces.get(0).unwrap()
-    }
-
-    pub fn active_workspace_mut(&mut self) -> &mut Workspace {
-        &mut self.workspaces[0]
     }
 
     pub fn refresh_outputs(&mut self) {
@@ -97,15 +105,6 @@ impl Shell {
             let mut map = layer_map_for_output(output);
             map.cleanup(dh);
         }
-    }
-
-    pub fn space_for_window_mut(&mut self, surface: &WlSurface) -> Option<&mut Workspace> {
-        self.workspaces.iter_mut().find(|workspace| {
-            workspace
-                .space
-                .window_for_surface(surface, WindowSurfaceType::ALL)
-                .is_some()
-        })
     }
 
     pub fn map_layer(&mut self, _layer_surface: &LayerSurface, _dh: &DisplayHandle) {
