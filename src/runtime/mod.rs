@@ -27,13 +27,11 @@ impl Runtime {
             };
             config_path.push("src");
             config_path.push("wm");
-            config_path.push("main.js");
+            config_path.push("main.ts");
         } else {
             let xdg_dirs = xdg::BaseDirectories::with_prefix("electrum").unwrap();
             config_path = xdg_dirs.get_config_file("main.ts");
         }
-
-        println!("{}", config_path.display());
 
         let main_module = deno_core::resolve_path(config_path.to_str().unwrap())
             .expect("failed to resolve main module");
