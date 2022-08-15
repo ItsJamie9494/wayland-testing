@@ -21,12 +21,12 @@ impl Runtime {
     pub fn new(data: LoopData) -> Self {
         let mut config_path: PathBuf;
         if cfg!(feature = "devel") {
-            config_path = match env::var("WM_PREFIX") {
+            config_path = match env::var("TS_PREFIX") {
                 Ok(x) => PathBuf::from(x),
                 Err(_) => current_dir().unwrap(),
             };
             config_path.push("src");
-            config_path.push("wm");
+            config_path.push("ts");
             config_path.push("main.ts");
         } else {
             let xdg_dirs = xdg::BaseDirectories::with_prefix("electrum").unwrap();
