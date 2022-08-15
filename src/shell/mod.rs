@@ -6,10 +6,13 @@ use smithay::{
     reexports::wayland_server::{protocol::wl_surface::WlSurface, DisplayHandle},
     utils::{Logical, Point},
     wayland::{
+        compositor::with_states,
         output::Output,
         seat::{PointerGrabStartData, Seat},
         shell::{
-            wlr_layer::WlrLayerShellState,
+            wlr_layer::{
+                KeyboardInteractivity, Layer, LayerSurfaceCachedState, WlrLayerShellState,
+            },
             xdg::{PopupSurface, PositionerState, XdgShellState},
         },
         Serial,
@@ -107,12 +110,37 @@ impl Shell {
         }
     }
 
-    pub fn map_layer(&mut self, _layer_surface: &LayerSurface, _dh: &DisplayHandle) {
-        // DENO FUNCTION
+    pub fn map_layer(&mut self, layer_surface: &LayerSurface, dh: &DisplayHandle) {
+        let pos = self
+            .pending_layers
+            .iter()
+            .position(|(l, _, _)| l == layer_surface)
+            .unwrap();
+        let (layer_surface, output, seat) = self.pending_layers.remove(pos);
+
+        let surface = layer_surface.wl_surface();
+        let wants_focus = {
+            with_states(surface, |states| {
+                let state = states.cached_state.current::<LayerSurfaceCachedState>();
+                matches!(state.layer, Layer::Top | Layer::Overlay)
+                    && state.keyboard_interactivity != KeyboardInteractivity::None
+            })
+        };
+
+        let mut map = layer_map_for_output(&output);
+        map.map_layer(dh, &layer_surface).unwrap();
+
+        if wants_focus {
+            self.set_focus(dh, Some(surface), &seat, None)
+        }
     }
 
-    pub fn map_window(&mut self, _window: &Window, _output: &Output, _dh: &DisplayHandle) {
-        // DENO FUNCTION
+    pub fn map_window(&mut self, window: &Window, _output: &Output, _dh: &DisplayHandle) {
+        let workspace = self.active_workspace_mut();
+
+        workspace
+            .space
+            .map_window(window, Point::from((0, 0)), 0, false);
     }
 
     pub fn move_request(
