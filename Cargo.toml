@@ -16,6 +16,7 @@ name = "image"
 
 [features]
 default = []
+devel = []
 debug = []
 
 [profile.dev]
@@ -41,7 +42,7 @@ num_cpus = "1.13.1"
 deno_core = "0.147.0"
 
 [dependencies.calloop]
-features = [ "executor" ]
+features = ["executor"]
 version = "0.10.1"
 
 [dependencies.smithay]
