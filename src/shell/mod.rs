@@ -153,6 +153,5 @@ fn remap_output(
     }
     if let Some(new) = new.into() {
         let new_space = &mut spaces[new].space;
-        new_space.map_output(output, pos.into().expect("new requires pos"));
     }
 }

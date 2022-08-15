@@ -24,6 +24,8 @@ use smithay::{
     },
 };
 
+use std::sync::{Arc, Mutex};
+
 use crate::{backend::winit::state::WinitState, log::LogState, shell::Shell};
 
 mod buffer;
@@ -63,6 +65,8 @@ pub struct Data {
     pub state: State,
 }
 
+pub type LoopData = Arc<Mutex<Data>>;
+
 pub struct State {
     pub backend: BackendData,
     pub common: CommonState,
@@ -70,7 +74,7 @@ pub struct State {
 
 pub struct CommonState {
     pub socket: OsString,
-    pub event_loop_handle: LoopHandle<'static, Data>,
+    pub event_loop_handle: LoopHandle<'static, LoopData>,
     pub event_loop_signal: LoopSignal,
 
     pub shell: Shell,
@@ -96,7 +100,7 @@ impl State {
     pub fn new(
         dh: &DisplayHandle,
         socket: OsString,
-        handle: LoopHandle<'static, Data>,
+        handle: LoopHandle<'static, LoopData>,
         signal: LoopSignal,
         log: LogState,
     ) -> Self {
@@ -105,7 +109,7 @@ impl State {
         Self {
             backend: BackendData::Unset,
             common: CommonState {
-                socket: socket,
+                socket,
                 event_loop_handle: handle,
                 event_loop_signal: signal,
 
@@ -116,7 +120,7 @@ impl State {
 
                 start_time: Instant::now(),
                 should_stop: false,
-                log: log,
+                log,
 
                 compositor_state: CompositorState::new::<Self, _>(dh, slog_scope::logger()),
                 data_device_state: DataDeviceState::new::<Self, _>(dh, slog_scope::logger()),

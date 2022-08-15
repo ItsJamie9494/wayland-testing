@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use std::{error::Error, ffi::OsString, sync::Arc};
+use std::{
+    error::Error,
+    ffi::OsString,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::Context;
 use smithay::{
@@ -10,12 +14,14 @@ use smithay::{
     },
     wayland::socket::ListeningSocketSource,
 };
-use state::{Data, State};
+use state::{Data, LoopData, State};
+use std::ops::DerefMut;
 
 use crate::log::init_logger;
 
 mod backend;
 mod log;
+mod runtime;
 mod shell;
 mod state;
 
@@ -38,10 +44,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     backend::init_backend(&display.handle(), &mut event_loop, &mut state)?;
 
-    let mut data = Data { display, state };
+    let mut data = Arc::new(Mutex::new(Data { display, state }));
+
+    let runtime = runtime::Runtime::new(data.clone());
+    runtime.run_with_calloop(event_loop.handle());
 
     event_loop
         .run(None, &mut data, |data| {
+            let mut data = data.lock().unwrap();
+
             // Shut down
             if data.state.common.shell.outputs().next().is_none() || data.state.common.should_stop {
                 slog_scope::info!("Shutting down");
@@ -50,21 +61,22 @@ fn main() -> Result<(), Box<dyn Error>> {
                 return;
             }
 
-            data.state.common.shell.refresh(&data.display.handle());
-            data.state.common.refresh_focus(&data.display.handle());
+            let handle = &data.display.handle();
+            data.state.common.shell.refresh(handle);
+            data.state.common.refresh_focus(handle);
 
             // Send events to Clients
             let _ = data.display.flush_clients();
         })
         .expect("Failed to run Event Loop");
 
-    let _log = data.state.destroy_with_log();
+//     let _log = data.state.destroy_with_log();
     std::mem::drop(event_loop);
     Ok(())
 }
 
 fn init_wayland_display(
-    event_loop: &mut EventLoop<Data>,
+    event_loop: &mut EventLoop<LoopData>,
 ) -> Result<(Display<State>, OsString), Box<dyn Error>> {
     let mut display = Display::new().unwrap();
 
@@ -75,6 +87,7 @@ fn init_wayland_display(
     event_loop
         .handle()
         .insert_source(socket_source, |stream, _, data| {
+            let data = data.lock().unwrap();
             if let Err(err) = data.display.handle().insert_client(
                 stream,
                 Arc::new(if cfg!(debug_assertions) {
@@ -93,12 +106,17 @@ fn init_wayland_display(
         .handle()
         .insert_source(
             Generic::new(display.backend().poll_fd(), Interest::READ, Mode::Level),
-            move |_, _, data: &mut Data| match data.display.dispatch_clients(&mut data.state) {
-                Ok(_) => Ok(PostAction::Continue),
-                Err(e) => {
-                    slog_scope::error!("I/O Error on display: {}", e);
-                    data.state.common.should_stop = true;
-                    Err(e)
+            move |_, _, data: &mut LoopData| {
+                let mut data = data.lock().unwrap();
+                let data = data.deref_mut();
+                let state = &mut data.state;
+                match data.display.dispatch_clients(state) {
+                    Ok(_) => Ok(PostAction::Continue),
+                    Err(e) => {
+                        slog_scope::error!("I/O Error on display: {}", e);
+                        data.state.common.should_stop = true;
+                        Err(e)
+                    }
                 }
             },
         )
