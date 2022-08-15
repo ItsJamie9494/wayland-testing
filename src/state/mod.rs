@@ -4,7 +4,7 @@ use std::{ffi::OsString, time::Instant};
 
 use smithay::{
     reexports::{
-        calloop::{LoopHandle, LoopSignal},
+        calloop::{channel::Sender, LoopHandle, LoopSignal},
         wayland_server::{
             backend::{ClientData, ClientId, DisconnectReason},
             protocol::wl_surface::WlSurface,
@@ -24,9 +24,10 @@ use smithay::{
     },
 };
 
-use std::sync::{Arc, Mutex};
-
-use crate::{backend::winit::state::WinitState, log::LogState, shell::Shell};
+use crate::{
+    backend::winit::state::WinitState, log::LogState, runtime::messages::RuntimeMessage,
+    shell::Shell,
+};
 
 mod buffer;
 mod compositor;
@@ -65,7 +66,7 @@ pub struct Data {
     pub state: State,
 }
 
-pub type LoopData = Arc<Mutex<Data>>;
+pub type LoopData = Data;
 
 pub struct State {
     pub backend: BackendData,
@@ -76,6 +77,7 @@ pub struct CommonState {
     pub socket: OsString,
     pub event_loop_handle: LoopHandle<'static, LoopData>,
     pub event_loop_signal: LoopSignal,
+    pub runtime_sender: Sender<RuntimeMessage>,
 
     pub shell: Shell,
     pub seats: Vec<Seat<State>>,
@@ -103,6 +105,7 @@ impl State {
         handle: LoopHandle<'static, LoopData>,
         signal: LoopSignal,
         log: LogState,
+        runtime_sender: Sender<RuntimeMessage>,
     ) -> Self {
         let initial_seat = Seat::<Self>::new(&dh, "seat-0", None);
 
@@ -112,6 +115,7 @@ impl State {
                 socket,
                 event_loop_handle: handle,
                 event_loop_signal: signal,
+                runtime_sender,
 
                 // TODO: Have input managers handle this
                 shell: Shell::new(&dh),

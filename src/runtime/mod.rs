@@ -2,23 +2,31 @@ use std::env::{self, current_dir};
 use std::path::PathBuf;
 
 use crate::LoopData;
+use calloop::channel::{channel, Channel, Event, Sender};
 use calloop::futures::{Executor, Scheduler};
-use calloop::LoopHandle;
+use calloop::EventLoop;
 use deno_core::error::AnyError;
 use deno_core::ModuleSpecifier;
 use deno_runtime::worker::MainWorker;
 
 mod main;
+pub mod messages;
 mod module;
 
+use messages::{CompositorMessage, RuntimeMessage};
+
 pub struct Runtime {
-    pub main_worker: MainWorker,
-    pub main_module: ModuleSpecifier,
-    pub data: LoopData,
+    main_worker: MainWorker,
+    main_module: ModuleSpecifier,
+    runtime_channel: Channel<RuntimeMessage>,
+    compositor_sender: Sender<CompositorMessage>,
+
+    pub runtime_sender: Sender<RuntimeMessage>,
 }
 
 impl Runtime {
-    pub fn new(data: LoopData) -> Self {
+    pub fn new(compositor_sender: Sender<CompositorMessage>) -> Self {
+        let (runtime_sender, runtime_channel) = channel::<RuntimeMessage>();
         let mut config_path: PathBuf;
         if cfg!(feature = "devel") {
             config_path = match env::var("TS_PREFIX") {
@@ -40,30 +48,49 @@ impl Runtime {
         Runtime {
             main_worker,
             main_module,
-            data,
+            runtime_channel,
+            runtime_sender,
+            compositor_sender,
         }
     }
 
-    pub async fn run(mut self) -> Result<(), AnyError> {
-        self.main_worker
-            .execute_main_module(&self.main_module)
-            .await?;
-        self.main_worker.run_event_loop(false).await?;
-        Ok(())
-    }
-
-    pub fn run_with_calloop(self, handle: LoopHandle<LoopData>) {
+    pub fn run_with_calloop(mut self, event_loop: &mut EventLoop<LoopData>) {
         let (exec, sched): (
             Executor<Result<(), AnyError>>,
             Scheduler<Result<(), AnyError>>,
         ) = calloop::futures::executor().unwrap();
 
-        handle
+        event_loop
+            .handle()
             .insert_source(exec, |evt, _metadata, _shared| {
                 evt.unwrap();
             })
             .unwrap();
 
-        sched.schedule(self.run()).unwrap();
+        let compositor_sender = self.compositor_sender.clone();
+
+        event_loop
+            .handle()
+            .insert_source(
+                self.runtime_channel,
+                move |message, _metadata, _shared| match message {
+                    Event::Msg(RuntimeMessage::Ping) => {
+                        slog_scope::info!("The runtime got a ping!");
+                        compositor_sender.send(CompositorMessage::Ping).unwrap();
+                    }
+                    Event::Closed => todo!(),
+                },
+            )
+            .unwrap();
+
+        sched
+            .schedule(async move {
+                self.main_worker
+                    .execute_main_module(&self.main_module)
+                    .await
+                    .unwrap();
+                self.main_worker.run_event_loop(false).await
+            })
+            .unwrap();
     }
 }
