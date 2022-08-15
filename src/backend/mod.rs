@@ -4,7 +4,7 @@ use std::{env, error::Error};
 
 use smithay::reexports::{calloop::EventLoop, wayland_server::DisplayHandle};
 
-use crate::state::{Data, State};
+use crate::state::{LoopData, State};
 
 // TODO Support Wayland-only backend
 pub mod renderer;
@@ -12,7 +12,7 @@ pub mod winit;
 
 pub fn init_backend(
     dh: &DisplayHandle,
-    event_loop: &mut EventLoop<'static, Data>,
+    event_loop: &mut EventLoop<'static, LoopData>,
     state: &mut State,
 ) -> Result<(), Box<dyn Error>> {
     let res = match env::var("ELECTRUM_BACKEND") {
