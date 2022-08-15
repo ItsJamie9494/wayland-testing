@@ -1,5 +1,5 @@
+use super::module::TypescriptModuleLoader;
 use deno_core::error::AnyError;
-use deno_core::FsModuleLoader;
 use deno_core::ModuleSpecifier;
 use deno_runtime::deno_broadcast_channel::InMemoryBroadcastChannel;
 use deno_runtime::deno_web::BlobStore;
@@ -15,7 +15,7 @@ fn get_error_class_name(e: &AnyError) -> &'static str {
 }
 
 fn options() -> WorkerOptions {
-    let module_loader = Rc::new(FsModuleLoader);
+    let module_loader = Rc::new(TypescriptModuleLoader);
     let create_web_worker_cb = Arc::new(|_| {
         todo!("Web workers are not supported in the example");
     });
