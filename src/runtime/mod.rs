@@ -1,3 +1,6 @@
+use std::env::{self, current_dir};
+use std::path::PathBuf;
+
 use crate::LoopData;
 use calloop::futures::{Executor, Scheduler};
 use calloop::LoopHandle;
@@ -15,9 +18,24 @@ pub struct Runtime {
 
 impl Runtime {
     pub fn new(data: LoopData) -> Self {
-        let xdg_dirs = xdg::BaseDirectories::with_prefix("electrum").unwrap();
-        let config_path = xdg_dirs.get_config_file("main.js");
-        let main_module = deno_core::resolve_path(config_path.to_str().unwrap()).expect("failed to resolve main module");
+        let mut config_path: PathBuf;
+        if cfg!(feature = "devel") {
+            config_path = match env::var("WM_PREFIX") {
+                Ok(x) => PathBuf::from(x),
+                Err(_) => current_dir().unwrap(),
+            };
+            config_path.push("src");
+            config_path.push("wm");
+            config_path.push("main.js");
+        } else {
+            let xdg_dirs = xdg::BaseDirectories::with_prefix("electrum").unwrap();
+            config_path = xdg_dirs.get_config_file("main.js");
+        }
+
+        println!("{}", config_path.display());
+
+        let main_module = deno_core::resolve_path(config_path.to_str().unwrap())
+            .expect("failed to resolve main module");
         let main_worker = main::new(main_module.clone());
 
         Runtime {
