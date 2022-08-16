@@ -77,7 +77,6 @@ pub struct CommonState {
     pub socket: OsString,
     pub event_loop_handle: LoopHandle<'static, LoopData>,
     pub event_loop_signal: LoopSignal,
-    pub runtime_sender: Sender<RuntimeMessage>,
 
     pub shell: Shell,
     pub seats: Vec<Seat<State>>,
@@ -115,10 +114,9 @@ impl State {
                 socket,
                 event_loop_handle: handle,
                 event_loop_signal: signal,
-                runtime_sender,
 
                 // TODO: Have input managers handle this
-                shell: Shell::new(&dh),
+                shell: Shell::new(&dh, runtime_sender),
                 seats: vec![initial_seat.clone()],
                 last_active_seat: initial_seat,
 
@@ -147,6 +145,7 @@ impl State {
 }
 
 impl CommonState {
+    /// Deno Function
     pub fn set_focus(
         &mut self,
         dh: &DisplayHandle,
@@ -158,7 +157,8 @@ impl CommonState {
         self.shell.update_active(self.seats.iter());
     }
 
+    /// Deno Function
     pub fn refresh_focus(&mut self, _dh: &DisplayHandle) {
-        // DENO FUNCTION
+        // TODO Focus
     }
 }

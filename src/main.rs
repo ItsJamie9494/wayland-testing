@@ -82,6 +82,8 @@ fn init_compositor_channel(event_loop: &mut EventLoop<LoopData>) -> Sender<Compo
                 slog_scope::info!("The compositor got a ping!");
                 data.state
                     .common
+                    .shell
+                    .active_workspace()
                     .runtime_sender
                     .send(RuntimeMessage::Ping)
                     .unwrap();

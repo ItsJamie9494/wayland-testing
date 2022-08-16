@@ -15,7 +15,6 @@ use smithay::{
 
 use super::State;
 
-// TODO: Should this be in Deno?
 pub struct DnDIcon {
     surface: RefCell<Option<WlSurface>>,
 }

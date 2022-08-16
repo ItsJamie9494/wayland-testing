@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use calloop::channel::Sender;
 use smithay::{
     desktop::{Kind, Space, Window},
     reexports::{
@@ -16,20 +17,22 @@ use smithay::{
     },
 };
 
-use crate::state::State;
+use crate::{runtime::messages::RuntimeMessage, state::State};
 
 pub struct Workspace {
     pub idx: u8,
     pub space: Space,
     pub fullscreen: HashMap<String, Window>,
+    pub runtime_sender: Sender<RuntimeMessage>,
 }
 
 impl Workspace {
-    pub fn new(idx: u8) -> Self {
+    pub fn new(idx: u8, rs: Sender<RuntimeMessage>) -> Self {
         Self {
             idx,
             space: Space::new(slog_scope::logger()),
             fullscreen: HashMap::new(),
+            runtime_sender: rs,
         }
     }
 
@@ -49,20 +52,27 @@ impl Workspace {
         self.space.refresh(dh);
     }
 
+    /// Deno Function
     pub fn maximize_request(&mut self, window: &Window, _output: &Output) {
         if self.fullscreen.values().any(|w| w == window) {
             return;
         }
-        // DENO CODE
+
+        // TODO: Values
+        self.runtime_sender.send(RuntimeMessage::Ping).unwrap();
     }
 
+    /// Deno Function
     pub fn unmaximize_request(&mut self, window: &Window) {
         if self.fullscreen.values().any(|w| w == window) {
             return self.unfullscreen_request(window);
         }
-        // DENO CODE
+
+        // TODO: Values
+        self.runtime_sender.send(RuntimeMessage::Ping).unwrap();
     }
 
+    /// Deno Function
     pub fn resize_request(
         &mut self,
         window: &Window,
@@ -74,6 +84,9 @@ impl Workspace {
         if self.fullscreen.values().any(|w| w == window) {
             return;
         }
+
+        // TODO: Values
+        self.runtime_sender.send(RuntimeMessage::Ping).unwrap();
     }
 
     pub fn fullscreen_request(&mut self, window: &Window, output: &Output) {
@@ -101,6 +114,7 @@ impl Workspace {
         }
     }
 
+    /// Deno Function
     pub fn unfullscreen_request(&mut self, window: &Window) {
         if self.fullscreen.values().any(|w| w == window) {
             #[allow(irrefutable_let_patterns)]
@@ -112,7 +126,8 @@ impl Workspace {
                 xdg.send_configure();
             }
 
-            // DENO CODE, SEND REFRESH
+            // TODO: Values
+            self.runtime_sender.send(RuntimeMessage::Ping).unwrap();
 
             self.fullscreen.retain(|_, w| w != window);
         }

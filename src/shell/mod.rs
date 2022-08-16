@@ -1,6 +1,7 @@
 //! This Implementation, ideally, will purely be callbacks to an FFI.
 //! There should be minimal amounts of code here, any code here is either for debug purposes or in development
 
+use calloop::channel::Sender;
 use smithay::{
     desktop::{layer_map_for_output, LayerSurface, PopupManager, Window, WindowSurfaceType},
     reexports::wayland_server::{protocol::wl_surface::WlSurface, DisplayHandle},
@@ -21,7 +22,7 @@ use smithay::{
 
 pub mod workspace;
 
-use crate::state::State;
+use crate::{runtime::messages::RuntimeMessage, state::State};
 
 use self::workspace::Workspace;
 
@@ -39,10 +40,10 @@ pub struct Shell {
 }
 
 impl Shell {
-    pub fn new(dh: &DisplayHandle) -> Self {
+    pub fn new(dh: &DisplayHandle, rs: Sender<RuntimeMessage>) -> Self {
         Self {
             // TODO: Make a way to create new Workspaces
-            workspaces: vec![Workspace::new(0)],
+            workspaces: vec![Workspace::new(0, rs)],
             outputs: Vec::new(),
             popups: PopupManager::new(slog_scope::logger()),
 
@@ -143,16 +144,28 @@ impl Shell {
             .map_window(window, Point::from((0, 0)), 0, false);
     }
 
+    /// Deno Function
     pub fn move_request(
         &mut self,
-        _window: &Window,
-        _seat: &Seat<State>,
+        window: &Window,
+        seat: &Seat<State>,
         _serial: Serial,
         _start_data: PointerGrabStartData,
     ) {
-        // DENO FUNCTION
+        if let Some(_pointer) = seat.get_pointer() {
+            let workspace = self
+                .space_for_window_mut(window.toplevel().wl_surface())
+                .unwrap();
+            if workspace.fullscreen.values().any(|w| w == window) {
+                return;
+            }
+
+            // TODO: Values
+            workspace.runtime_sender.send(RuntimeMessage::Ping).unwrap();
+        }
     }
 
+    /// Deno Function
     pub fn set_focus(
         &mut self,
         _dh: &DisplayHandle,
@@ -160,15 +173,17 @@ impl Shell {
         _active_seat: &Seat<State>,
         _serial: Option<Serial>,
     ) {
-        // DENO FUNCTION
+        // TODO: Focus
     }
 
+    /// Deno Function
     pub fn update_active<'a>(&mut self, _seats: impl Iterator<Item = &'a Seat<State>>) {
-        // DENO FUNCTION
+        // TODO: Focus
     }
 
+    /// Deno Function
     pub fn unconstrain_popup(&self, _surface: &PopupSurface, _positioner: &PositionerState) {
-        // DENO FUNCTION
+        // TODO: Popups
     }
 }
 

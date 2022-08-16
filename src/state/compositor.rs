@@ -25,6 +25,7 @@ impl CompositorHandler for State {
         &mut self.common.compositor_state
     }
 
+    /// Deno Function
     fn commit(&mut self, dh: &DisplayHandle, surface: &WlSurface) {
         // Load buffers
         on_commit_buffer_handler(surface);
@@ -72,7 +73,7 @@ impl CompositorHandler for State {
             self.xdg_popup_ensure_initial_configure(&popup);
         }
 
-        // Handle weird special shit, probably in Deno?
+        // Handle weird special shit in Deno
 
         // Commit and finalise mappings
         self.common.shell.popups.commit(surface);
