@@ -149,8 +149,8 @@ impl Shell {
         &mut self,
         window: &Window,
         seat: &Seat<State>,
-        _serial: Serial,
-        _start_data: PointerGrabStartData,
+        serial: Serial,
+        start_data: PointerGrabStartData,
     ) {
         if let Some(_pointer) = seat.get_pointer() {
             let workspace = self
@@ -160,8 +160,15 @@ impl Shell {
                 return;
             }
 
-            // TODO: Values
-            workspace.runtime_sender.send(RuntimeMessage::Ping).unwrap();
+            workspace
+                .runtime_sender
+                .send(RuntimeMessage::MoveRequest {
+                    window: window.clone(),
+                    seat: seat.clone(),
+                    serial,
+                    start_data,
+                })
+                .unwrap();
         }
     }
 

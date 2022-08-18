@@ -78,6 +78,7 @@ impl Runtime {
                         slog_scope::info!("The runtime got a ping!");
                         compositor_sender.send(CompositorMessage::Ping).unwrap();
                     }
+                    Event::Msg(_) => todo!(),
                     Event::Closed => todo!(),
                 },
             )

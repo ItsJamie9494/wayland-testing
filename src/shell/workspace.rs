@@ -53,13 +53,17 @@ impl Workspace {
     }
 
     /// Deno Function
-    pub fn maximize_request(&mut self, window: &Window, _output: &Output) {
+    pub fn maximize_request(&mut self, window: &Window, output: &Output) {
         if self.fullscreen.values().any(|w| w == window) {
             return;
         }
 
-        // TODO: Values
-        self.runtime_sender.send(RuntimeMessage::Ping).unwrap();
+        self.runtime_sender
+            .send(RuntimeMessage::MaximizeRequest {
+                window: window.clone(),
+                output: output.clone(),
+            })
+            .unwrap();
     }
 
     /// Deno Function
@@ -68,25 +72,35 @@ impl Workspace {
             return self.unfullscreen_request(window);
         }
 
-        // TODO: Values
-        self.runtime_sender.send(RuntimeMessage::Ping).unwrap();
+        self.runtime_sender
+            .send(RuntimeMessage::UnmaximizeRequest {
+                window: window.clone(),
+            })
+            .unwrap();
     }
 
     /// Deno Function
     pub fn resize_request(
         &mut self,
         window: &Window,
-        _seat: &Seat<State>,
-        _serial: Serial,
-        _start_data: PointerGrabStartData,
-        _edges: ResizeEdge,
+        seat: &Seat<State>,
+        serial: Serial,
+        start_data: PointerGrabStartData,
+        edges: ResizeEdge,
     ) {
         if self.fullscreen.values().any(|w| w == window) {
             return;
         }
 
-        // TODO: Values
-        self.runtime_sender.send(RuntimeMessage::Ping).unwrap();
+        self.runtime_sender
+            .send(RuntimeMessage::ResizeRequest {
+                window: window.clone(),
+                seat: seat.clone(),
+                serial,
+                start_data,
+                edges,
+            })
+            .unwrap();
     }
 
     pub fn fullscreen_request(&mut self, window: &Window, output: &Output) {
@@ -126,8 +140,11 @@ impl Workspace {
                 xdg.send_configure();
             }
 
-            // TODO: Values
-            self.runtime_sender.send(RuntimeMessage::Ping).unwrap();
+            self.runtime_sender
+                .send(RuntimeMessage::UnfullscreenRequest {
+                    window: window.clone(),
+                })
+                .unwrap();
 
             self.fullscreen.retain(|_, w| w != window);
         }
