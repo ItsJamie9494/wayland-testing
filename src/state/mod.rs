@@ -34,7 +34,7 @@ mod compositor;
 mod data_device;
 mod dmabuf;
 mod layer_shell;
-mod output;
+pub(crate) mod output;
 mod primary_selection;
 mod seat;
 mod shm;
