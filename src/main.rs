@@ -17,6 +17,7 @@ use crate::log::init_logger;
 use crate::runtime::messages::{CompositorMessage, RuntimeMessage};
 
 mod backend;
+mod input;
 mod log;
 mod runtime;
 mod shell;
