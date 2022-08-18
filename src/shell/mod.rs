@@ -172,20 +172,50 @@ impl Shell {
         }
     }
 
-    /// Deno Function
     pub fn set_focus(
         &mut self,
         _dh: &DisplayHandle,
-        _surface: Option<&WlSurface>,
-        _active_seat: &Seat<State>,
+        surface: Option<&WlSurface>,
+        active_seat: &Seat<State>,
         _serial: Option<Serial>,
     ) {
-        // TODO: Focus
+        // update FocusStack and notify layouts about new focus (if any window)
+        if let Some(surface) = surface {
+            if let Some(workspace) = self.space_for_window_mut(surface) {
+                if let Some(window) = workspace
+                    .space
+                    .window_for_surface(surface, WindowSurfaceType::ALL)
+                {
+                    let mut focus_stack = workspace.focus_stack_mut(active_seat);
+                    if Some(window) != focus_stack.last().as_ref() {
+                        slog_scope::debug!("Focusing window: {:?}", window);
+                        focus_stack.append(window);
+                        // TODO popups
+                    }
+                }
+            }
+        }
     }
 
-    /// Deno Function
-    pub fn update_active<'a>(&mut self, _seats: impl Iterator<Item = &'a Seat<State>>) {
-        // TODO: Focus
+    pub fn update_active<'a>(&mut self, seats: impl Iterator<Item = &'a Seat<State>>) {
+        let focused_windows = seats
+            .flat_map(|seat| {
+                self.outputs
+                    .iter()
+                    .flat_map(|_| self.active_workspace().focus_stack(seat).last().clone())
+            })
+            .collect::<Vec<_>>();
+
+        for _ in self.outputs.iter() {
+            let workspace = &mut self.workspaces[0];
+            for focused in focused_windows.iter() {
+                workspace.space.raise_window(focused, true);
+            }
+            for window in workspace.space.windows() {
+                window.set_activated(focused_windows.contains(window));
+                window.configure();
+            }
+        }
     }
 
     /// Deno Function

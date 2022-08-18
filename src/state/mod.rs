@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use std::{ffi::OsString, time::Instant};
+use std::{ffi::OsString, sync::Mutex, time::Instant};
 
 use smithay::{
+    desktop::WindowSurfaceType,
     reexports::{
         calloop::{channel::Sender, LoopHandle, LoopSignal},
         wayland_server::{
@@ -11,13 +12,15 @@ use smithay::{
             Display, DisplayHandle,
         },
     },
+    utils::IsAlive,
     wayland::{
-        compositor::CompositorState,
+        compositor::{with_states, CompositorState},
         data_device::DataDeviceState,
         dmabuf::DmabufState,
         output::OutputManagerState,
         primary_selection::PrimarySelectionState,
         seat::{Seat, SeatState},
+        shell::xdg::XdgToplevelSurfaceRoleAttributes,
         shm::ShmState,
         viewporter::ViewporterState,
         Serial,
@@ -25,8 +28,11 @@ use smithay::{
 };
 
 use crate::{
-    backend::winit::state::WinitState, input::add_seat, log::LogState,
-    runtime::messages::RuntimeMessage, shell::Shell,
+    backend::winit::state::WinitState,
+    input::add_seat,
+    log::LogState,
+    runtime::messages::RuntimeMessage,
+    shell::{workspace::ActiveFocus, Shell},
 };
 
 mod buffer;
@@ -39,7 +45,7 @@ mod primary_selection;
 mod seat;
 mod shm;
 mod viewporter;
-mod xdg_shell;
+pub(crate) mod xdg_shell;
 
 pub enum BackendData {
     Winit(WinitState),
@@ -145,7 +151,6 @@ impl State {
 }
 
 impl CommonState {
-    /// Deno Function
     pub fn set_focus(
         &mut self,
         dh: &DisplayHandle,
@@ -157,8 +162,45 @@ impl CommonState {
         self.shell.update_active(self.seats.iter());
     }
 
-    /// Deno Function
     pub fn refresh_focus(&mut self, _dh: &DisplayHandle) {
-        // TODO Focus
+        for seat in &self.seats {
+            let mut fixup = false;
+            let last_known_focus = ActiveFocus::get(seat);
+
+            if let Some(surface) = last_known_focus {
+                if surface.alive() {
+                    let is_toplevel = with_states(&surface, |states| {
+                        states
+                            .data_map
+                            .get::<Mutex<XdgToplevelSurfaceRoleAttributes>>()
+                            .is_some()
+                    });
+                    if !is_toplevel {
+                        continue;
+                    }
+
+                    let workspace = self.shell.active_workspace();
+                    if let Some(window) = workspace
+                        .space
+                        .window_for_surface(&surface, WindowSurfaceType::ALL)
+                    {
+                        let focus_stack = workspace.focus_stack(&seat);
+                        if focus_stack.last().map(|w| &w != window).unwrap_or(true) {
+                            fixup = true;
+                        }
+                    } else {
+                        fixup = true;
+                    }
+                } else {
+                    fixup = true;
+                }
+            }
+
+            if fixup {
+                // TODO popups
+            }
+        }
+
+        self.shell.update_active(self.seats.iter())
     }
 }
