@@ -46,4 +46,18 @@ pub fn active_output(seat: &Seat<State>, state: &CommonState) -> Output {
         })
 }
 
+pub fn set_active_output(seat: &Seat<State>, output: &Output) {
+    if !seat
+        .user_data()
+        .insert_if_missing(|| ActiveOutput(RefCell::new(output.clone())))
+    {
+        *seat
+            .user_data()
+            .get::<ActiveOutput>()
+            .unwrap()
+            .0
+            .borrow_mut() = output.clone();
+    }
+}
+
 delegate_output!(State);
