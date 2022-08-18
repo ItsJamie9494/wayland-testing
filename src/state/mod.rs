@@ -25,8 +25,8 @@ use smithay::{
 };
 
 use crate::{
-    backend::winit::state::WinitState, log::LogState, runtime::messages::RuntimeMessage,
-    shell::Shell,
+    backend::winit::state::WinitState, input::add_seat, log::LogState,
+    runtime::messages::RuntimeMessage, shell::Shell,
 };
 
 mod buffer;
@@ -106,7 +106,7 @@ impl State {
         log: LogState,
         runtime_sender: Sender<RuntimeMessage>,
     ) -> Self {
-        let initial_seat = Seat::<Self>::new(&dh, "seat-0", None);
+        let initial_seat = add_seat(dh, "seat-0".to_string());
 
         Self {
             backend: BackendData::Unset,
