@@ -3,15 +3,17 @@
 use std::error::Error;
 
 use crate::{
-    state::{BackendData, LoopData},
+    input::Devices,
+    state::{output::set_active_output, BackendData, LoopData},
     State,
 };
 use anyhow::{anyhow, Context};
 use smithay::{
     backend::{
         renderer::ImportDma,
-        winit::{self, WinitEvent, WinitGraphicsBackend},
+        winit::{self, WinitEvent, WinitGraphicsBackend, WinitVirtualDevice},
     },
+    desktop::layer_map_for_output,
     reexports::{
         calloop::{ping, EventLoop},
         wayland_server::{
@@ -137,19 +139,41 @@ fn init_egl(
     Ok(())
 }
 
-// TODO: Forward all events to input handlers
 impl State {
     pub fn process_winit_event(
         &mut self,
-        _dh: &DisplayHandle,
+        dh: &DisplayHandle,
         event: WinitEvent,
         render_ping: &ping::Ping,
     ) {
         match event {
-            WinitEvent::Resized { .. } => {}
-            WinitEvent::Focus(_) => {}
-            WinitEvent::Input(_) => {}
+            WinitEvent::Resized { size, .. } => {
+                let winit_state = self.backend.winit();
+                let output = &winit_state.output;
+                let mode = Mode {
+                    size,
+                    refresh: 60_000,
+                };
+
+                output.delete_mode(output.current_mode().unwrap());
+                output.set_preferred(mode);
+                output.change_current_state(Some(mode), None, None, None);
+                layer_map_for_output(output).arrange(dh);
+                self.common.shell.refresh_outputs();
+                render_ping.ping();
+            }
+            WinitEvent::Focus(true) => {
+                for seat in self.common.seats.clone().iter() {
+                    let devices = seat.user_data().get::<Devices>().unwrap();
+                    if devices.has_device(&WinitVirtualDevice) {
+                        set_active_output(seat, &self.backend.winit().output);
+                        break;
+                    }
+                }
+            }
+            WinitEvent::Input(e) => self.process_input_event(dh, e),
             WinitEvent::Refresh => render_ping.ping(),
+            _ => {}
         }
     }
 }
