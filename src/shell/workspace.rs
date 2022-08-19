@@ -1,17 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use std::{
-    cell::{Ref, RefCell, RefMut},
-    collections::HashMap,
-};
+use std::collections::HashMap;
 
 use calloop::channel::Sender;
-use indexmap::IndexSet;
 use smithay::{
     desktop::{Kind, Space, Window},
     reexports::{
         wayland_protocols::xdg::shell::server::xdg_toplevel::{self, ResizeEdge},
-        wayland_server::{protocol::wl_surface::WlSurface, DisplayHandle},
+        wayland_server::DisplayHandle,
     },
     utils::IsAlive,
     wayland::{
@@ -22,39 +18,6 @@ use smithay::{
 };
 
 use crate::{runtime::messages::RuntimeMessage, state::State};
-
-pub struct FocusStack<'a>(Ref<'a, IndexSet<Window>>);
-pub struct FocusStackMut<'a>(RefMut<'a, IndexSet<Window>>);
-
-impl<'a> FocusStack<'a> {
-    pub fn last(&self) -> Option<Window> {
-        self.0.iter().rev().find(|w| w.toplevel().alive()).cloned()
-    }
-}
-
-impl<'a> FocusStackMut<'a> {
-    pub fn append(&mut self, window: &Window) {
-        self.0.retain(|w| w.toplevel().alive());
-        self.0.shift_remove(window);
-        self.0.insert(window.clone());
-    }
-
-    pub fn last(&self) -> Option<Window> {
-        self.0.iter().rev().find(|w| w.toplevel().alive()).cloned()
-    }
-}
-
-type FocusStackData = RefCell<(HashMap<u8, IndexSet<Window>>, IndexSet<Window>)>;
-
-pub struct ActiveFocus(RefCell<Option<WlSurface>>);
-
-impl ActiveFocus {
-    pub fn get(seat: &Seat<State>) -> Option<WlSurface> {
-        seat.user_data()
-            .get::<ActiveFocus>()
-            .and_then(|a| a.0.borrow().clone())
-    }
-}
 
 pub struct Workspace {
     pub idx: u8,
@@ -193,28 +156,5 @@ impl Workspace {
         }
 
         self.fullscreen.get(&output.name()).filter(|w| w.alive())
-    }
-
-    pub fn focus_stack<'a, 'b>(&'b self, seat: &'a Seat<State>) -> FocusStack<'a> {
-        seat.user_data()
-            .insert_if_missing(|| FocusStackData::new((HashMap::new(), IndexSet::new())));
-        let idx = self.idx;
-        FocusStack(Ref::map(
-            seat.user_data().get::<FocusStackData>().unwrap().borrow(),
-            |map| map.0.get(&idx).unwrap_or(&map.1),
-        ))
-    }
-
-    pub fn focus_stack_mut<'a, 'b>(&'b self, seat: &'a Seat<State>) -> FocusStackMut<'a> {
-        seat.user_data()
-            .insert_if_missing(|| FocusStackData::new((HashMap::new(), IndexSet::new())));
-        let idx = self.idx;
-        FocusStackMut(RefMut::map(
-            seat.user_data()
-                .get::<FocusStackData>()
-                .unwrap()
-                .borrow_mut(),
-            |map| map.0.entry(idx).or_insert_with(|| IndexSet::new()),
-        ))
     }
 }
