@@ -1313,7 +1313,6 @@ dependencies = [
  "deno_runtime",
  "futures",
  "image",
- "indexmap",
  "num_cpus",
  "slog",
  "slog-scope",
