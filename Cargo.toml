@@ -41,6 +41,11 @@ deno_runtime = "0.73.0"
 num_cpus = "1.13.1"
 deno_core = "0.147.0"
 futures = "0.3.23"
+deno_ops = "0.25.0"
+
+[dependencies.serde]
+features = [ "derive" ]
+version = "1.0.143"
 
 [dependencies.deno_ast]
 features = [ "transpiling" ]
