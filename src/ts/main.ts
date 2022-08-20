@@ -1,3 +1,3 @@
 while (true) {
-  console.log(await Deno.core.ops.op_electrum_poll_events())
+  console.log(await Deno.core.opAsync("op_electrum_poll_events"));
 }

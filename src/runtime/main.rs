@@ -39,7 +39,7 @@ fn options(extensions: Vec<Extension>) -> WorkerOptions {
             unstable: false,
             user_agent: "electrum".to_string(),
         },
-        extensions: vec![],
+        extensions,
         unsafely_ignore_certificate_errors: None,
         root_cert_store: None,
         seed: None,

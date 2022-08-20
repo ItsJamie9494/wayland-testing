@@ -8,7 +8,7 @@ use deno_core::{Extension, op, OpState};
 use futures::channel::mpsc::{UnboundedReceiver, UnboundedSender, unbounded};
 use futures::StreamExt;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub enum Event {
   Ping
 }
@@ -16,7 +16,9 @@ pub enum Event {
 #[op]
 pub async fn op_electrum_poll_events(state: &mut OpState) -> Result<Option<Event>, AnyError> {
   let mut channel = state.borrow_mut::<Rc<RefCell<UnboundedReceiver<Event>>>>().try_borrow_mut()?;
-  Ok(channel.next().await)
+  let val = channel.next().await;
+  println!("{:?}", val);
+  Ok(val)
 }
 
 pub struct MainExtensionInstance {
